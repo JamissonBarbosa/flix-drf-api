@@ -1,7 +1,9 @@
 from rest_framework import serializers
 from django.db.models import Avg
+from actors.serializers import ActorSerializer
 from movies.models import Movie
 from genders.models import Gender
+from genders.serializers import GenderSerializer
 from actors.models import Actor
 
 
@@ -15,25 +17,10 @@ class MovieSerializers(serializers.Serializer):
   resume = serializers.CharField()
 
 class MovieModelSerializer(serializers.ModelSerializer):
-  rate = serializers.SerializerMethodField(read_only=True)
 
   class Meta:
     model = Movie
     fields = '__all__'
-
-  def get_rate(self, obj):
-    rate = obj.reviews.aggregate(Avg('star'))['star__avg']
-    if rate:
-      return round(rate, 1)
-    return None
-    # reviews = obj.reviews.all()
-    # if reviews:
-    #   sum_reviews = 0
-    #   for review in reviews:
-    #     sum_reviews += review.star
-    #     reviews_count = reviews.count()
-    #     return round(sum_reviews / reviews_count, 1)
-    # return None
   
   def validate_release_date(self, value):
     if value.year < 1900:
@@ -44,3 +31,25 @@ class MovieModelSerializer(serializers.ModelSerializer):
     if len(value) > 300:
       raise serializers.ValidationError('O resumo deve ter no máximo 200 caracteres')
     return value
+  
+class MovieListDetailSerializer(serializers.ModelSerializer):
+    actors = ActorSerializer(many=True)
+    gender = GenderSerializer()
+    rate = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Movie
+        fields = ['id', 'title', 'gender', 'release_date', 'actors', 'resume', 'rate']
+    
+    def get_rate(self, obj):
+      rate = obj.reviews.aggregate(Avg('star'))['star__avg']
+      if rate:
+        return round(rate, 1)
+      return None
+        
+
+class MovieStatsSerializer(serializers.Serializer):
+  total_movies = serializers.IntegerField()
+  movies_by_gender = serializers.ListField()
+  total_reviews = serializers.IntegerField()
+  average_star = serializers.FloatField()
